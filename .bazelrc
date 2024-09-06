@@ -1,0 +1,7 @@
+startup --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1
+
+common --@aspect_rules_ts//ts:skipLibCheck=always
+common --action_env=NODE_OPTIONS=--max-old-space-size=8192
+common --incompatible_allow_tags_propagation
+
+test --test_output=errors

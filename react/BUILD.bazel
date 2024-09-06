@@ -1,0 +1,187 @@
+load("@aspect_bazel_lib//lib:copy_to_bin.bzl", "copy_to_bin")
+load("@aspect_rules_js//js:defs.bzl", "js_library", "js_run_binary", "js_run_devserver")
+load("@aspect_rules_swc//swc:defs.bzl", "swc")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
+load("@bazel_skylib//lib:partial.bzl", "partial")
+load("@npm//:playwright/package_json.bzl", playwright_bin = "bin")
+load("@npm//:tsconfig-to-swcconfig/package_json.bzl", tsconfig_to_swcconfig = "bin")
+load("@npm//:vite/package_json.bzl", vite_bin = "bin")
+
+js_library(
+    name = "assets",
+    srcs = glob(
+        [
+            "src/**/*.css",
+            "src/**/*.ico",
+            "src/**/*.png",
+            "src/**/*.svg",
+        ],
+    ),
+    visibility = ["//react:__subpackages__"],
+)
+
+copy_to_bin(
+    name = "tsconfig",
+    srcs = ["tsconfig.json"],
+    visibility = ["//react:__subpackages__"],
+)
+
+tsconfig_to_swcconfig.t2s(
+    name = "write_swcrc",
+    srcs = ["tsconfig.json"],
+    args = [
+        "--filename",
+        "$(location tsconfig.json)",
+    ],
+    stdout = ".swcrc",
+    visibility = ["//react:__subpackages__"],
+)
+
+TRANSPILER = partial.make(
+    swc,
+    swcrc = "//react:.swcrc",
+)
+
+ts_project(
+    name = "src",
+    srcs = glob(
+        [
+            "src/**/*.ts",
+            "src/**/*.tsx",
+        ],
+        exclude = [
+            "src/**/*.spec.ts",
+            "src/**/*.spec.tsx",
+            "src/**/*.test.ts",
+            "src/**/*.test.tsx",
+        ],
+    ),
+    declaration = True,
+    transpiler = TRANSPILER,
+    tsconfig = "//react:tsconfig",
+    visibility = ["//react:__subpackages__"],
+    deps = [
+        ":assets",
+        "//:node_modules",
+    ],
+)
+
+js_library(
+    name = "vite-config",
+    srcs = ["vite.config.ts"],
+    data = [
+        "//:node_modules/@vitejs/plugin-react",
+        "//:node_modules/vite-plugin-svgr",
+    ],
+    visibility = ["//react:__subpackages__"],
+)
+
+vite_bin.vite_binary(
+    name = "vite",
+    chdir = package_name(),
+    data = ["vite-config"],
+)
+
+RUNTIME_DEPS = [
+    "index.html",
+    ":src",
+    ":tsconfig",
+    "//:node_modules",
+    "//:package_json",
+]
+
+js_run_devserver(
+    name = "start",
+    args = [""],
+    data = RUNTIME_DEPS + ["vite.config.ts"],
+    tool = ":vite",
+)
+
+js_run_binary(
+    name = "build",
+    srcs = RUNTIME_DEPS,
+    args = ["build"],
+    out_dirs = ["build"],
+    tool = ":vite",
+)
+
+ts_project(
+    name = "test_lib",
+    srcs = glob(
+        [
+            "src/**/*.spec.ts",
+            "src/**/*.spec.tsx",
+            "src/**/*.test.ts",
+            "src/**/*.test.tsx",
+        ],
+    ),
+    declaration = True,
+    transpiler = TRANSPILER,
+    tsconfig = "//react:tsconfig",
+    visibility = ["//react:__subpackages__"],
+    deps = [
+        ":assets",
+        "//:node_modules",
+    ],
+)
+
+js_library(
+    name = "playwright-config",
+    srcs = [
+        "playwright.config.ts",
+        "playwright/index.html",
+        "playwright/index.tsx",
+    ],
+    visibility = ["//react:__subpackages__"],
+)
+
+playwright_bin.playwright_test(
+    name = "test1",
+    args = [
+        "test",
+        "--config=react/playwright.config.ts",
+    ],
+    data = [
+        ":playwright-config",
+        ":src",
+        ":test_lib",
+        "//:node_modules",
+        "//:package_json",
+    ],
+)
+
+playwright_bin.playwright_test(
+    name = "test2",
+    args = [
+        "test",
+        "--config=playwright.config.ts",
+    ],
+    chdir = package_name(),
+    data = [
+        ":playwright-config",
+        ":src",
+        ":test_lib",
+        "//:node_modules",
+        "//:package_json",
+    ],
+)
+
+playwright_bin.playwright_test(
+    name = "test3",
+    args = [
+        "test",
+        "--config=playwright.config.ts",
+    ],
+    chdir = package_name(),
+    data = glob(
+        [
+            "src/**/*.ts",
+            "src/**/*.tsx",
+        ],
+    ) + [
+        ":playwright-config",
+        ":vite-config",
+        "//:node_modules",
+        "//:package_json",
+    ],
+)
