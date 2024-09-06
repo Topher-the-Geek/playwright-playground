@@ -1,0 +1,12 @@
+.pnpm-store
+bazel-bin
+bazel-out
+bazel-testlogs
+bazel-watcher
+bazel-workspace
+node_modules
+react/dist
+react/playwright-report
+react/playwright/.cache
+test-results
+*~
