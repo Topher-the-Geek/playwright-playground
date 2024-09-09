@@ -17,7 +17,6 @@ Build goodness. Test, not so much.
 git checkout main
 pnpm dev                   # Still works to run dev server with hot module replace
 bazel build //react:build  # Builds bundled version
-bazel test //react:test1   # "Cannot find...editor.api...did you mean...editor.api.js"
-bazel test //react:test2   # Same
-bazel test //react:test3   # "did not expect test.use() to be called here"
+bazel test //react:test1   # 'To load an ES module, set "type": "module"'
+bazel test //react:test2   # "did not expect test.use() to be called here"
 ```
